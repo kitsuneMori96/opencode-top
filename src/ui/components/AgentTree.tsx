@@ -73,7 +73,7 @@ function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }: Ag
           ? truncate(node.session.title ?? node.session.projectName ?? "Untitled", 22)
           : truncate(`[${agentName ?? "?"}] ${node.session.title ?? ""}`, 20);
 
-        const date = formatDate(node.session.timeCreated);
+        const date = formatDate(node.session.timeUpdated ?? node.session.timeCreated);
         return (
           <Box key={node.id} flexDirection="row" height={1}>
             {isSelected ? (

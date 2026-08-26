@@ -2,9 +2,9 @@ import React, { useMemo, memo, useState, useCallback } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { colors } from "../theme";
 import { StatusBar } from "../components/StatusBar";
-import { SparkLine } from "../components/SparkLine";
+import { BarChart, buildAxisLine } from "../components/BarChart";
 import type { Workflow } from "../../core/types";
-import { computeOverviewStats, buildSparkSeries } from "../../core/session";
+import { computeOverviewStats } from "../../core/session";
 import { getAllPricing } from "../../data/pricing";
 
 type TimeFilter = 1 | 7 | 30 | 90 | 0; // 1 = today, 0 = all time
@@ -38,42 +38,6 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <Box marginTop={1}>
       <Text color={colors.purple} bold>── {title.toUpperCase()} </Text>
-    </Box>
-  );
-}
-
-/** Horizontal bar: filled █ proportional to value/max, with label and count */
-function HBar({
-  label,
-  value,
-  max,
-  total,
-  width = 16,
-  barColor = colors.info,
-  labelWidth = 10,
-  showPct = false,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  total?: number;
-  width?: number;
-  barColor?: string;
-  labelWidth?: number;
-  showPct?: boolean;
-}) {
-  const pct = max > 0 ? value / max : 0;
-  const filled = Math.max(0, Math.round(pct * width));
-  const empty = width - filled;
-  const pctStr = showPct && total && total > 0 ? ` ${Math.round((value / total) * 100)}%` : "";
-  return (
-    <Box flexDirection="row">
-      <Box width={labelWidth}>
-        <Text color={colors.text}>{truncate(label, labelWidth - 1)}</Text>
-      </Box>
-      <Text color={barColor}>{"▓".repeat(filled)}</Text>
-      <Text color={colors.textMuted}>{"░".repeat(empty)}</Text>
-      <Text color={colors.textDim}> {value}{pctStr}</Text>
     </Box>
   );
 }
@@ -132,18 +96,25 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
 
   const selectedProject = projectFilterIdx === 0 ? null : allProjects[projectFilterIdx - 1] ?? null;
 
-  // Apply filters
-  const filteredWorkflows = useMemo(() => {
-    let cutoff = 0;
+  // Cutoff anchored to local midnight for consistent bucketing
+  const cutoff = useMemo(() => {
     if (timeFilter === 1) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      cutoff = today.getTime();
-    } else if (timeFilter > 1) {
-      cutoff = Date.now() - timeFilter * 86_400_000;
+      return today.getTime();
     }
+    if (timeFilter > 1) {
+      const d = new Date(Date.now() - timeFilter * 86_400_000);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    return 0;
+  }, [timeFilter, workflows]);
+
+  // Apply filters
+  const filteredWorkflows = useMemo(() => {
     return workflows.filter((w) => {
-      const ts = w.mainSession.timeCreated;
+      const ts = w.mainSession.timeUpdated ?? w.mainSession.timeCreated;
       if (cutoff > 0 && (ts === null || ts < cutoff)) return false;
       if (selectedProject !== null) {
         const p = w.mainSession.projectName ?? "Unknown";
@@ -151,7 +122,7 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
       }
       return true;
     });
-  }, [workflows, timeFilter, selectedProject]);
+  }, [workflows, cutoff, selectedProject]);
 
   useInput((input) => {
     if (!isActive) return;
@@ -169,7 +140,7 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
     }
   }, { isActive });
 
-  const stats = useMemo(() => computeOverviewStats(filteredWorkflows, pricing), [filteredWorkflows, pricing]);
+  const stats = useMemo(() => computeOverviewStats(filteredWorkflows, pricing, cutoff), [filteredWorkflows, pricing, cutoff]);
 
   const topModels = useMemo(() =>
     Array.from(stats.modelBreakdown.entries())
@@ -199,17 +170,11 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
   );
   const maxToolCalls = topTools[0]?.[1].calls ?? 1;
 
-  // Weekly sparklines
-  const weeklyTokenValues = stats.weeklyTokens.map((d) => d.tokens);
-  const weeklySessionValues = stats.weeklySessions.map((d) => d.sessions);
+  // Trend data (time-filtered)
+  const weeklyTokenValues = stats.tokenTrend.values;
+  const weeklySessionValues = stats.sessionTrend.values;
   const maxWeeklyTokens = Math.max(...weeklyTokenValues, 1);
   const maxWeeklySessions = Math.max(...weeklySessionValues, 1);
-
-  // Hourly heatmap — group into 4-hour buckets for compactness: 0-3,4-7,8-11,12-15,16-19,20-23
-  const hourlyBuckets = Array.from({ length: 6 }, (_, i) =>
-    stats.hourlyActivity.slice(i * 4, i * 4 + 4).reduce((a, b) => a + b, 0)
-  );
-  const hourSpark = buildSparkSeries(stats.hourlyActivity);
 
   // Column widths based on terminal
   const leftW = Math.max(32, Math.floor(terminalWidth * 0.38));
@@ -250,43 +215,21 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
           <StatRow label="  cache r/w" value={`${formatTokens(stats.totalTokens.cacheRead)} / ${formatTokens(stats.totalTokens.cacheWrite)}`} color={colors.textDim} />
           <StatRow label="Total cost" value={`$${stats.totalCost.toFixed(4)}`} color={colors.success} />
 
-          <SectionHeader title="Token trend (7d)" />
-          <Box flexDirection="row">
-            <SparkLine values={weeklyTokenValues} color={colors.accentAlt} />
-          </Box>
-          <Box flexDirection="row">
-            <Text color={colors.textDim}>{stats.weeklyTokens[0]?.date.slice(3) ?? ""}</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>peak {formatTokens(maxWeeklyTokens)}</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>{stats.weeklyTokens[6]?.date.slice(3) ?? ""}</Text>
-          </Box>
+          {timeFilter > 0 && (
+            <>
+              <SectionHeader title={`Token trend (${stats.tokenTrend.spanText} · peak ${formatTokens(maxWeeklyTokens)})`} />
+              <BarChart values={weeklyTokenValues} color={colors.accentAlt} width={leftW} height={4} />
+              <Text color={colors.textDim}>{buildAxisLine(stats.tokenTrend.labels, leftW)}</Text>
 
-          <SectionHeader title="Sessions (7d)" />
-          <Box flexDirection="row">
-            <SparkLine values={weeklySessionValues} color={colors.purple} />
-          </Box>
-          <Box flexDirection="row">
-            <Text color={colors.textDim}>{stats.weeklySessions[0]?.date.slice(3) ?? ""}</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>peak {maxWeeklySessions}/day</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>{stats.weeklySessions[6]?.date.slice(3) ?? ""}</Text>
-          </Box>
+              <SectionHeader title={`Sessions (${stats.sessionTrend.spanText} · peak ${maxWeeklySessions}${stats.sessionTrend.mode === "hour" ? "/h" : "/day"})`} />
+              <BarChart values={weeklySessionValues} color={colors.purple} width={leftW} height={3} />
+              <Text color={colors.textDim}>{buildAxisLine(stats.sessionTrend.labels, leftW)}</Text>
+            </>
+          )}
 
           <SectionHeader title="Hourly activity" />
-          <Text color={colors.teal}>{hourSpark}</Text>
-          <Box flexDirection="row">
-            <Text color={colors.textDim}>00</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>06</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>12</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>18</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textDim}>23</Text>
-          </Box>
+          <BarChart values={stats.hourlyActivity} color={colors.teal} width={leftW} height={3} />
+          <Text color={colors.textDim}>{buildAxisLine(Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")), leftW, [0, 6, 12, 18, 23])}</Text>
 
         </Box>
 
@@ -317,10 +260,10 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
                   <Text color={colors.text}>{truncate(name, 9)}</Text>
                 </Box>
                 <Text color={data.errors > 0 ? colors.peach : colors.accentAlt}>
-                  {"▓".repeat(Math.max(1, Math.round((data.calls / maxToolCalls) * 12)))}
+                  {"▓".repeat(Math.max(1, Math.round(Math.sqrt(data.calls / maxToolCalls) * 12)))}
                 </Text>
                 <Text color={colors.textMuted}>
-                  {"░".repeat(Math.max(0, 12 - Math.max(1, Math.round((data.calls / maxToolCalls) * 12))))}
+                  {"░".repeat(Math.max(0, 12 - Math.max(1, Math.round(Math.sqrt(data.calls / maxToolCalls) * 12))))}
                 </Text>
                 <Text color={colors.textDim}> {data.calls}</Text>
                 {data.errors > 0 && <Text color={colors.error}> ✗{data.errors}</Text>}

@@ -35,9 +35,11 @@ function buildAgentNode(
       children.push(buildAgentNode(s, sessionMap, depth + 1));
     }
   }
-  // Sort children by timeCreated
+  // Sort children by most recent activity (timeUpdated preferred)
   children.sort(
-    (a, b) => (a.session.timeCreated ?? 0) - (b.session.timeCreated ?? 0)
+    (a, b) =>
+      ((a.session.timeUpdated ?? a.session.timeCreated ?? 0) as number) -
+      ((b.session.timeUpdated ?? b.session.timeCreated ?? 0) as number)
   );
   return { session, children, depth };
 }

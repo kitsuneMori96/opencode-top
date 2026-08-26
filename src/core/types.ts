@@ -91,6 +91,7 @@ export interface Session {
   projectName: string | null;
   title: string | null;
   timeCreated: number | null;
+  timeUpdated: number | null;
   timeArchived: number | null;
   interactions: Interaction[];
   source: "sqlite" | "files";
@@ -136,6 +137,13 @@ export interface ToolUsage {
   recentErrors: string[];
 }
 
+export interface TrendSeries {
+  labels: string[];
+  values: number[];
+  mode: "hour" | "day" | "week";
+  spanText: string;
+}
+
 export interface OverviewStats {
   totalCost: Decimal;
   totalTokens: TokenUsage;
@@ -144,10 +152,8 @@ export interface OverviewStats {
   agentBreakdown: Map<string, { cost: Decimal; calls: number }>;
   agentToolErrors: Map<string, { calls: number; errors: number }>;
   toolCallCounts: Map<string, { calls: number; errors: number; totalDurationMs: number }>;
-  // 7-day daily data
-  weeklyTokens: { date: string; tokens: number }[];
-  weeklySessions: { date: string; sessions: number }[];
-  // 24-hour activity pattern (interactions per hour, all-time)
+  tokenTrend: TrendSeries;
+  sessionTrend: TrendSeries;
   hourlyActivity: number[];
 }
 

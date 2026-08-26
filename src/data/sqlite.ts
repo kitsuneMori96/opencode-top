@@ -10,6 +10,7 @@ interface DbSession {
   project_id: string | null;
   title: string | null;
   time_created: number | null;
+  time_updated: number | null;
   time_archived: number | null;
   project_name: string | null;
 }
@@ -103,11 +104,11 @@ export function loadSessions(dbPath: string = getDbPath(), sinceMessageTime?: nu
     .prepare(`
     SELECT
       s.id, s.parent_id, s.project_id, s.title,
-      s.time_created, s.time_archived,
+      s.time_created, s.time_updated, s.time_archived,
       p.name as project_name
     FROM session s
     LEFT JOIN project p ON s.project_id = p.id
-    ORDER BY s.time_created DESC
+    ORDER BY COALESCE(NULLIF(s.time_updated, 0), s.time_created) DESC
   `)
     .all() as DbSession[];
 
@@ -147,6 +148,7 @@ export function loadSessions(dbPath: string = getDbPath(), sinceMessageTime?: nu
       projectName: s.project_name,
       title: s.title,
       timeCreated: s.time_created,
+      timeUpdated: s.time_updated ?? null,
       timeArchived: s.time_archived,
       interactions: interactions.get(s.id) ?? [],
       source: "sqlite" as const,

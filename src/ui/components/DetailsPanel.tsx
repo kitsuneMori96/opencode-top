@@ -61,7 +61,7 @@ function ProgressBar({
 
   return (
     <Text>
-      <Text color={color}>{"▓".repeat(filled)}</Text>
+      <Text color={color}>{"█".repeat(filled)}</Text>
       <Text color={colors.textMuted}>{"░".repeat(empty)}</Text>
       <Text color={colors.textDim}> {Math.round(pct * 100)}%</Text>
     </Text>
@@ -129,7 +129,7 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
   }
 
   return (
-    <Box flexDirection="column" paddingX={1} height={height} overflow="hidden">
+    <Box flexDirection="column" paddingX={1} height={height} width={64} overflow="hidden">
       <Box flexDirection="column">
         <Text color={colors.accent} bold>{data.title}</Text>
         <Text color={colors.textMuted}>◎ {data.project}</Text>

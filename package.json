@@ -1,6 +1,6 @@
 {
   "name": "opencode-top",
-  "version": "3.5.11",
+  "version": "3.5.12",
   "description": "Monitor OpenCode AI coding sessions - Token usage, costs, and agent analytics",
   "type": "module",
   "files": [

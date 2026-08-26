@@ -10,7 +10,15 @@ interface SparkLineProps {
 }
 
 function SparkLineInner({ values, color = colors.info, width }: SparkLineProps) {
-  const data = width && values.length > width ? values.slice(-width) : values;
+  const chartWidth = width
+    ? Math.max(1, Math.round(Math.sqrt(width * 12)))
+    : values.length;
+  const data =
+    values.length > chartWidth
+      ? values.slice(values.length - chartWidth)
+      : values.length < chartWidth
+      ? [...values, ...new Array(chartWidth - values.length).fill(0)]
+      : values;
   const spark = buildSparkSeries(data);
   return <Text color={color}>{spark}</Text>;
 }

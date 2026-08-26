@@ -163,7 +163,8 @@ export function getOutputRate(session: Session): number {
 
 export function computeOverviewStats(
   workflows: Workflow[],
-  pricing: Map<string, ModelPricing>
+  pricing: Map<string, ModelPricing>,
+  cutoff: number = 0,
 ): OverviewStats {
   const totalTokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0 };
   let totalCost = new Decimal(0);
@@ -172,12 +173,11 @@ export function computeOverviewStats(
   const agentBreakdown = new Map<string, { cost: Decimal; calls: number }>();
   const agentToolErrors = new Map<string, { calls: number; errors: number }>();
   const toolCallCounts = new Map<string, { calls: number; errors: number; totalDurationMs: number }>();
-  const weeklyTokenMap = new Map<string, number>();
-  const weeklySessionMap = new Map<string, number>();
+  const tokenPoints: [number, number][] = [];
+  const sessionPoints: [number, number][] = [];
   const hourlyActivity = new Array(24).fill(0);
 
   const now = Date.now();
-  const sevenDaysAgo = now - 7 * 86_400_000;
 
   for (const workflow of workflows) {
     const allSessions = [workflow.mainSession, ...workflow.subAgentSessions];
@@ -185,16 +185,24 @@ export function computeOverviewStats(
     for (const session of allSessions) {
       const projName = session.projectName ?? "Unknown";
       const projEntry = projectBreakdown.get(projName) ?? { cost: new Decimal(0), sessions: 0 };
-      projEntry.sessions++;
 
-      // Weekly session count
-      const sessionTs = session.timeCreated;
-      if (sessionTs && sessionTs >= sevenDaysAgo) {
-        const day = new Date(sessionTs).toISOString().slice(5, 10); // MM-DD
-        weeklySessionMap.set(day, (weeklySessionMap.get(day) ?? 0) + 1);
+      let sessionActive = false;
+      for (const interaction of session.interactions) {
+        // Skip interactions outside time window
+        if (cutoff > 0 && (interaction.time.created === null || interaction.time.created < cutoff)) continue;
+        sessionActive = true;
       }
 
+      if (!sessionActive) continue;
+
+      projEntry.sessions++;
+      const sessionTs = session.timeUpdated ?? session.timeCreated;
+      if (sessionTs) sessionPoints.push([sessionTs, 1]);
+
       for (const interaction of session.interactions) {
+        // Skip interactions outside time window
+        if (cutoff > 0 && (interaction.time.created === null || interaction.time.created < cutoff)) continue;
+
         const p = pricing.get(interaction.modelId);
         const cost = p ? interaction.tokens.calculateCost(p) : new Decimal(0);
 
@@ -230,11 +238,8 @@ export function computeOverviewStats(
         if (ts) {
           hourlyActivity[new Date(ts).getHours()]++;
 
-          // Weekly token trend
-          if (ts >= sevenDaysAgo) {
-            const day = new Date(ts).toISOString().slice(5, 10);
-            weeklyTokenMap.set(day, (weeklyTokenMap.get(day) ?? 0) + interaction.tokens.total);
-          }
+          // Token trend (cutoff-based)
+          tokenPoints.push([ts, interaction.tokens.total]);
         }
 
         // Tool stats: per-tool call counts and agent tool errors
@@ -263,17 +268,8 @@ export function computeOverviewStats(
     }
   }
 
-  // Build 7-day arrays (last 7 days, MM-DD labels)
-  const today = new Date();
-  const weeklyTokens: { date: string; tokens: number }[] = [];
-  const weeklySessions: { date: string; sessions: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const day = d.toISOString().slice(5, 10);
-    weeklyTokens.push({ date: day, tokens: weeklyTokenMap.get(day) ?? 0 });
-    weeklySessions.push({ date: day, sessions: weeklySessionMap.get(day) ?? 0 });
-  }
+  const tokenTrend = buildTrendBuckets(tokenPoints, cutoff, now);
+  const sessionTrend = buildTrendBuckets(sessionPoints, cutoff, now);
 
   return {
     totalCost,
@@ -289,10 +285,96 @@ export function computeOverviewStats(
     agentBreakdown,
     agentToolErrors,
     toolCallCounts,
-    weeklyTokens,
-    weeklySessions,
+    tokenTrend,
+    sessionTrend,
     hourlyActivity,
   };
+}
+
+/** Build adaptive trend buckets from timestamp → value pairs */
+export function buildTrendBuckets(points: [number, number][], cutoff: number, now: number) {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  let start: number;
+  let mode: "hour" | "day" | "week";
+
+  if (cutoff > 0 && cutoff === todayStart.getTime()) {
+    start = cutoff;
+    mode = "hour";
+  } else if (cutoff > 0) {
+    start = cutoff;
+    mode = "day";
+  } else {
+    let min = now;
+    for (const [ts] of points) if (ts && ts < min) min = ts;
+    const d = new Date(min);
+    d.setHours(0, 0, 0, 0);
+    start = Math.min(d.getTime(), todayStart.getTime());
+    mode = "day";
+  }
+
+  const days = Math.max(1, Math.floor((now - start) / 864e5) + 1);
+
+  let count: number;
+  let bucketMs: number;
+
+  if (mode === "hour") {
+    count = 24;
+    bucketMs = 36e5;
+  } else if (days <= 120) {
+    count = days;
+    bucketMs = 864e5;
+  } else {
+    mode = "week";
+    count = Math.ceil(days / 7);
+    bucketMs = 7 * 864e5;
+  }
+
+  const buckets = new Array(count).fill(0);
+  const labels: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = start + i * bucketMs;
+    const d = new Date(t);
+    if (mode === "hour") {
+      labels.push(String(d.getHours()).padStart(2, "0"));
+    } else if (mode === "week") {
+      const m = d.toLocaleDateString("en", { month: "short" });
+      const dd = d.getDate();
+      labels.push(`${m} ${dd}`);
+    } else {
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      labels.push(`${m}-${dd}`);
+    }
+  }
+
+  for (const [ts, val] of points) {
+    if (ts < start) continue;
+    let idx = Math.floor((ts - start) / bucketMs);
+    if (idx < 0) idx = 0;
+    if (idx >= count) idx = count - 1;
+    buckets[idx] += val;
+  }
+
+  // Thin labels: show first, last, every ~8th
+  const thinned: string[] = [];
+  const step = Math.max(1, Math.ceil(count / 8));
+  for (let i = 0; i < count; i++) {
+    if (i === 0 || i === count - 1 || i % step === 0) {
+      thinned.push(labels[i]);
+    } else {
+      thinned.push("");
+    }
+  }
+
+  const spanText = mode === "hour"
+    ? "today"
+    : mode === "week"
+    ? `${days}d`
+    : `${days}d`;
+
+  return { labels: thinned, values: buckets, mode, spanText };
 }
 
 /** Build spark series (8 levels) from numeric array */
