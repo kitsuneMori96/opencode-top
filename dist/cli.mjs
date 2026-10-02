@@ -14811,7 +14811,7 @@ function eastAsianWidth(codePoint, { ambiguousAsWide = false } = {}) {
   return 1;
 }
 
-// node_modules/string-width/index.js
+// node_modules/widest-line/node_modules/string-width/index.js
 var import_emoji_regex = __toESM(require_emoji_regex(), 1);
 var segmenter = new Intl.Segmenter();
 var defaultIgnorableCodePointRegex = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
@@ -14888,6 +14888,55 @@ var measureText = (text) => {
   return { width, height };
 };
 var measure_text_default = measureText;
+
+// node_modules/wrap-ansi/node_modules/string-width/index.js
+var import_emoji_regex2 = __toESM(require_emoji_regex(), 1);
+var segmenter2 = new Intl.Segmenter();
+var defaultIgnorableCodePointRegex2 = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
+function stringWidth2(string, options = {}) {
+  if (typeof string !== "string" || string.length === 0) {
+    return 0;
+  }
+  const {
+    ambiguousIsNarrow = true,
+    countAnsiEscapeCodes = false
+  } = options;
+  if (!countAnsiEscapeCodes) {
+    string = stripAnsi(string);
+  }
+  if (string.length === 0) {
+    return 0;
+  }
+  let width = 0;
+  const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
+  for (const { segment: character } of segmenter2.segment(string)) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint <= 31 || codePoint >= 127 && codePoint <= 159) {
+      continue;
+    }
+    if (codePoint >= 8203 && codePoint <= 8207 || codePoint === 65279) {
+      continue;
+    }
+    if (codePoint >= 768 && codePoint <= 879 || codePoint >= 6832 && codePoint <= 6911 || codePoint >= 7616 && codePoint <= 7679 || codePoint >= 8400 && codePoint <= 8447 || codePoint >= 65056 && codePoint <= 65071) {
+      continue;
+    }
+    if (codePoint >= 55296 && codePoint <= 57343) {
+      continue;
+    }
+    if (codePoint >= 65024 && codePoint <= 65039) {
+      continue;
+    }
+    if (defaultIgnorableCodePointRegex2.test(character)) {
+      continue;
+    }
+    if ((0, import_emoji_regex2.default)().test(character)) {
+      width += 2;
+      continue;
+    }
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+  }
+  return width;
+}
 
 // node_modules/ansi-styles/index.js
 var ANSI_BACKGROUND_OFFSET = 10;
@@ -15088,14 +15137,14 @@ var ANSI_SGR_TERMINATOR = "m";
 var ANSI_ESCAPE_LINK = `${ANSI_OSC}8;;`;
 var wrapAnsiCode = (code) => `${ESCAPES.values().next().value}${ANSI_CSI}${code}${ANSI_SGR_TERMINATOR}`;
 var wrapAnsiHyperlink = (url) => `${ESCAPES.values().next().value}${ANSI_ESCAPE_LINK}${url}${ANSI_ESCAPE_BELL}`;
-var wordLengths = (string) => string.split(" ").map((character) => stringWidth(character));
+var wordLengths = (string) => string.split(" ").map((character) => stringWidth2(character));
 var wrapWord = (rows, word, columns) => {
   const characters = [...word];
   let isInsideEscape = false;
   let isInsideLinkEscape = false;
-  let visible = stringWidth(stripAnsi(rows.at(-1)));
+  let visible = stringWidth2(stripAnsi(rows.at(-1)));
   for (const [index, character] of characters.entries()) {
-    const characterLength = stringWidth(character);
+    const characterLength = stringWidth2(character);
     if (visible + characterLength <= columns) {
       rows[rows.length - 1] += character;
     } else {
@@ -15132,7 +15181,7 @@ var stringVisibleTrimSpacesRight = (string) => {
   const words = string.split(" ");
   let last = words.length;
   while (last > 0) {
-    if (stringWidth(words[last - 1]) > 0) {
+    if (stringWidth2(words[last - 1]) > 0) {
       break;
     }
     last--;
@@ -15155,7 +15204,7 @@ var exec = (string, columns, options = {}) => {
     if (options.trim !== false) {
       rows[rows.length - 1] = rows.at(-1).trimStart();
     }
-    let rowLength = stringWidth(rows.at(-1));
+    let rowLength = stringWidth2(rows.at(-1));
     if (index !== 0) {
       if (rowLength >= columns && (options.wordWrap === false || options.trim === false)) {
         rows.push("");
@@ -15336,6 +15385,55 @@ function sliceAnsi(string, begin, end) {
   return output;
 }
 
+// node_modules/cli-truncate/node_modules/string-width/index.js
+var import_emoji_regex3 = __toESM(require_emoji_regex(), 1);
+var segmenter3 = new Intl.Segmenter();
+var defaultIgnorableCodePointRegex3 = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
+function stringWidth3(string, options = {}) {
+  if (typeof string !== "string" || string.length === 0) {
+    return 0;
+  }
+  const {
+    ambiguousIsNarrow = true,
+    countAnsiEscapeCodes = false
+  } = options;
+  if (!countAnsiEscapeCodes) {
+    string = stripAnsi(string);
+  }
+  if (string.length === 0) {
+    return 0;
+  }
+  let width = 0;
+  const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
+  for (const { segment: character } of segmenter3.segment(string)) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint <= 31 || codePoint >= 127 && codePoint <= 159) {
+      continue;
+    }
+    if (codePoint >= 8203 && codePoint <= 8207 || codePoint === 65279) {
+      continue;
+    }
+    if (codePoint >= 768 && codePoint <= 879 || codePoint >= 6832 && codePoint <= 6911 || codePoint >= 7616 && codePoint <= 7679 || codePoint >= 8400 && codePoint <= 8447 || codePoint >= 65056 && codePoint <= 65071) {
+      continue;
+    }
+    if (codePoint >= 55296 && codePoint <= 57343) {
+      continue;
+    }
+    if (codePoint >= 65024 && codePoint <= 65039) {
+      continue;
+    }
+    if (defaultIgnorableCodePointRegex3.test(character)) {
+      continue;
+    }
+    if ((0, import_emoji_regex3.default)().test(character)) {
+      width += 2;
+      continue;
+    }
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+  }
+  return width;
+}
+
 // node_modules/cli-truncate/index.js
 function getIndexOfNearestSpace(string, wantedIndex, shouldSearchRight) {
   if (string.charAt(wantedIndex) === " ") {
@@ -15369,7 +15467,7 @@ function cliTruncate(text, columns, options = {}) {
   if (columns === 1) {
     return truncationCharacter;
   }
-  const length = stringWidth(text);
+  const length = stringWidth3(text);
   if (length <= columns) {
     return text;
   }
@@ -15381,7 +15479,7 @@ function cliTruncate(text, columns, options = {}) {
     if (space === true) {
       truncationCharacter += " ";
     }
-    return truncationCharacter + sliceAnsi(text, length - columns + stringWidth(truncationCharacter), length);
+    return truncationCharacter + sliceAnsi(text, length - columns + stringWidth3(truncationCharacter), length);
   }
   if (position === "middle") {
     if (space === true) {
@@ -15393,7 +15491,7 @@ function cliTruncate(text, columns, options = {}) {
       const spaceNearSecondBreakPoint = getIndexOfNearestSpace(text, length - (columns - half) + 1, true);
       return sliceAnsi(text, 0, spaceNearFirstBreakPoint) + truncationCharacter + sliceAnsi(text, spaceNearSecondBreakPoint, length).trim();
     }
-    return sliceAnsi(text, 0, half) + truncationCharacter + sliceAnsi(text, length - (columns - half) + stringWidth(truncationCharacter), length);
+    return sliceAnsi(text, 0, half) + truncationCharacter + sliceAnsi(text, length - (columns - half) + stringWidth3(truncationCharacter), length);
   }
   if (position === "end") {
     if (preferTruncationOnSpace) {
@@ -15403,7 +15501,7 @@ function cliTruncate(text, columns, options = {}) {
     if (space === true) {
       truncationCharacter = ` ${truncationCharacter}`;
     }
-    return sliceAnsi(text, 0, columns - stringWidth(truncationCharacter)) + truncationCharacter;
+    return sliceAnsi(text, 0, columns - stringWidth3(truncationCharacter)) + truncationCharacter;
   }
   throw new Error(`Expected \`options.position\` to be either \`start\`, \`middle\` or \`end\`, got ${position}`);
 }
@@ -16850,6 +16948,55 @@ function sliceAnsi2(string, start, end) {
   return returnValue;
 }
 
+// node_modules/ink/node_modules/string-width/index.js
+var import_emoji_regex4 = __toESM(require_emoji_regex(), 1);
+var segmenter4 = new Intl.Segmenter();
+var defaultIgnorableCodePointRegex4 = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
+function stringWidth4(string, options = {}) {
+  if (typeof string !== "string" || string.length === 0) {
+    return 0;
+  }
+  const {
+    ambiguousIsNarrow = true,
+    countAnsiEscapeCodes = false
+  } = options;
+  if (!countAnsiEscapeCodes) {
+    string = stripAnsi(string);
+  }
+  if (string.length === 0) {
+    return 0;
+  }
+  let width = 0;
+  const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
+  for (const { segment: character } of segmenter4.segment(string)) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint <= 31 || codePoint >= 127 && codePoint <= 159) {
+      continue;
+    }
+    if (codePoint >= 8203 && codePoint <= 8207 || codePoint === 65279) {
+      continue;
+    }
+    if (codePoint >= 768 && codePoint <= 879 || codePoint >= 6832 && codePoint <= 6911 || codePoint >= 7616 && codePoint <= 7679 || codePoint >= 8400 && codePoint <= 8447 || codePoint >= 65056 && codePoint <= 65071) {
+      continue;
+    }
+    if (codePoint >= 55296 && codePoint <= 57343) {
+      continue;
+    }
+    if (codePoint >= 65024 && codePoint <= 65039) {
+      continue;
+    }
+    if (defaultIgnorableCodePointRegex4.test(character)) {
+      continue;
+    }
+    if ((0, import_emoji_regex4.default)().test(character)) {
+      width += 2;
+      continue;
+    }
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+  }
+  return width;
+}
+
 // node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js
 var ESCAPES4 = /* @__PURE__ */ new Set([27, 155]);
 var endCodesSet2 = /* @__PURE__ */ new Set();
@@ -17104,7 +17251,7 @@ var Output = class {
           if (clipHorizontally) {
             lines = lines.map((line) => {
               const from = x < clip.x1 ? clip.x1 - x : 0;
-              const width = stringWidth(line);
+              const width = stringWidth4(line);
               const to = x + width > clip.x2 ? clip.x2 - x : width;
               return sliceAnsi2(line, from, to);
             });
@@ -18567,6 +18714,145 @@ var StatusBar = (0, import_react24.memo)(StatusBarInner);
 
 // src/ui/components/AgentTree.tsx
 var import_react25 = __toESM(require_react(), 1);
+
+// node_modules/string-width/index.js
+var segmenter5 = new Intl.Segmenter();
+var visibleCharacterRegex = new RegExp("[^\\p{Default_Ignorable_Code_Point}\\p{Control}\\p{Format}\\p{Nonspacing_Mark}\\p{Enclosing_Mark}\\p{Surrogate}]", "v");
+var spacingMarkRegex = new RegExp("\\p{Spacing_Mark}", "v");
+var rgiEmojiRegex = new RegExp("^\\p{RGI_Emoji}$", "v");
+var unqualifiedKeycapRegex = /^[\d#*]\u20E3$/;
+var extendedPictographicRegex = new RegExp("\\p{Extended_Pictographic}", "gu");
+function isDoubleWidthNonRgiEmojiSequence(segment) {
+  if (segment.length > 50) {
+    return false;
+  }
+  if (unqualifiedKeycapRegex.test(segment)) {
+    return true;
+  }
+  if (segment.includes("\u200D")) {
+    const pictographics = segment.match(extendedPictographicRegex);
+    return pictographics !== null && pictographics.length >= 2;
+  }
+  return false;
+}
+function baseVisible(segment) {
+  const index = segment.search(visibleCharacterRegex);
+  return index === -1 ? void 0 : segment.slice(index);
+}
+function isHangulLeadingJamo(codePoint) {
+  return codePoint >= 4352 && codePoint <= 4447 || codePoint >= 43360 && codePoint <= 43388;
+}
+function isHangulVowelJamo(codePoint) {
+  return codePoint >= 4448 && codePoint <= 4519 || codePoint >= 55216 && codePoint <= 55238;
+}
+function isHangulTrailingJamo(codePoint) {
+  return codePoint >= 4520 && codePoint <= 4607 || codePoint >= 55243 && codePoint <= 55291;
+}
+function isHangulJamo(codePoint) {
+  return isHangulLeadingJamo(codePoint) || isHangulVowelJamo(codePoint) || isHangulTrailingJamo(codePoint);
+}
+function hangulClusterWidth(visibleSegment, eastAsianWidthOptions) {
+  const codePoints = [];
+  for (const character of visibleSegment) {
+    if (!visibleCharacterRegex.test(character)) {
+      continue;
+    }
+    codePoints.push(character.codePointAt(0));
+  }
+  if (codePoints.length === 0) {
+    return void 0;
+  }
+  let width = 0;
+  for (let index = 0; index < codePoints.length; index++) {
+    const codePoint = codePoints[index];
+    if (!isHangulJamo(codePoint)) {
+      if (width === 0) {
+        return void 0;
+      }
+      for (let remaining = index; remaining < codePoints.length; remaining++) {
+        width += eastAsianWidth(codePoints[remaining], eastAsianWidthOptions);
+      }
+      return width;
+    }
+    if (isHangulLeadingJamo(codePoint) && isHangulVowelJamo(codePoints[index + 1])) {
+      width += 2;
+      index += isHangulTrailingJamo(codePoints[index + 2]) ? 2 : 1;
+      continue;
+    }
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+  }
+  return width;
+}
+function trailingWidth(visibleSegment, eastAsianWidthOptions) {
+  let extra = 0;
+  let first = true;
+  for (const character of visibleSegment) {
+    if (first) {
+      first = false;
+      continue;
+    }
+    if (spacingMarkRegex.test(character) || character >= "\uFF00" && character <= "\uFFEF") {
+      extra += eastAsianWidth(character.codePointAt(0), eastAsianWidthOptions);
+    }
+  }
+  return extra;
+}
+function stringWidth5(input, options = {}) {
+  if (typeof input !== "string" || input.length === 0) {
+    return 0;
+  }
+  const {
+    ambiguousIsNarrow = true,
+    countAnsiEscapeCodes = false
+  } = options;
+  let string = input;
+  if (!countAnsiEscapeCodes && (string.includes("\x1B") || string.includes("\x9B"))) {
+    string = stripAnsi(string);
+  }
+  if (string.length === 0) {
+    return 0;
+  }
+  if (/^[\u0020-\u007E]*$/.test(string)) {
+    return string.length;
+  }
+  let width = 0;
+  const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
+  for (const { segment } of segmenter5.segment(string)) {
+    const visibleSegment = baseVisible(segment);
+    if (visibleSegment === void 0) {
+      continue;
+    }
+    if (rgiEmojiRegex.test(segment) || isDoubleWidthNonRgiEmojiSequence(segment)) {
+      width += 2;
+      continue;
+    }
+    const hangulWidth = hangulClusterWidth(visibleSegment, eastAsianWidthOptions);
+    if (hangulWidth !== void 0) {
+      width += hangulWidth;
+      continue;
+    }
+    const codePoint = visibleSegment.codePointAt(0);
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+    width += trailingWidth(visibleSegment, eastAsianWidthOptions);
+  }
+  return width;
+}
+
+// src/ui/text.ts
+function truncateDisplay(s, maxCols) {
+  if (maxCols <= 0) return "";
+  if (stringWidth5(s) <= maxCols) return s;
+  if (maxCols === 1) return "\u2026";
+  let width = 0;
+  let out = "";
+  for (const ch of s) {
+    const w = stringWidth5(ch);
+    if (width + w > maxCols - 1) break;
+    out += ch;
+    width += w;
+  }
+  return `${out}\u2026`;
+}
 
 // node_modules/decimal.js/decimal.mjs
 var EXP_LIMIT = 9e15;
@@ -21106,7 +21392,7 @@ function formatDate(ts) {
   const min2 = String(d.getMinutes()).padStart(2, "0");
   return `${mm}/${dd} ${hh}:${min2}`;
 }
-function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }) {
+function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20, expandedIds }) {
   const headerHeight = 2;
   const visibleCount = Math.max(1, maxHeight - headerHeight);
   const selectedIndex = flatNodes.findIndex((n) => n.id === selectedId);
@@ -21132,20 +21418,24 @@ function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }) {
       const cost = getSessionCostSingle(node.session, pricing);
       const agentName = node.session.interactions[0]?.agent ?? null;
       const indent = "  ".repeat(node.depth);
-      const prefix = node.depth === 0 ? node.hasChildren ? "\u25B8 " : "  " : node.hasChildren ? "\u2570\u25B8 " : "\u2570\u2500 ";
+      const isExpanded = node.depth === 0 && node.hasChildren ? expandedIds?.has(workflows[node.workflowIndex]?.id ?? "") ?? false : false;
+      const prefix = node.depth === 0 ? node.hasChildren ? isExpanded ? "\u25BE " : "\u25B8 " : "  " : node.hasChildren ? "\u2570\u25B8 " : "\u2570\u2500 ";
       const label = node.depth === 0 ? truncate2(node.session.title ?? node.session.projectName ?? "Untitled", 22) : truncate2(`[${agentName ?? "?"}] ${node.session.title ?? ""}`, 20);
       const date = formatDate(node.session.timeUpdated ?? node.session.timeCreated);
       return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Box_default, { flexDirection: "row", height: 1, children: [
-        isSelected ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: colors.bgHighlight, backgroundColor: colors.accent, bold: true, children: `\u25B6 ${indent}${prefix}${label}` }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: node.depth === 0 ? colors.text : colors.textDim, children: `  ${indent}${prefix}${label}` }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { flexGrow: 1 }),
-        date && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Text, { color: colors.textMuted, children: [
-          date,
-          " "
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: colors.textDim, children: formatTokens(tokens.total) }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { width: 1 }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: cost.greaterThan(0) ? colors.success : colors.textMuted, children: formatCost(cost) }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { width: 1 })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, overflow: "hidden", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          Text,
+          {
+            wrap: "truncate",
+            color: isSelected ? colors.bgHighlight : node.depth === 0 ? colors.text : colors.textDim,
+            backgroundColor: isSelected ? colors.accent : void 0,
+            bold: isSelected,
+            children: `${isSelected ? "\u25B6 " : "  "}${indent}${prefix}${label}`
+          }
+        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { width: 12, children: date ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: colors.textMuted, children: date }) : null }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { width: 7, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: colors.textDim, children: formatTokens(tokens.total) }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Box_default, { width: 8, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Text, { color: cost.greaterThan(0) ? colors.success : colors.textMuted, children: formatCost(cost) }) })
       ] }, node.id);
     }),
     flatNodes.length > visibleCount && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Text, { color: colors.textDim, children: [
@@ -21158,9 +21448,8 @@ function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }) {
   ] });
 }
 var AgentTree = (0, import_react25.memo)(AgentTreeInner);
-function truncate2(label, maxLen) {
-  if (label.length <= maxLen) return label;
-  return label.slice(0, maxLen - 1) + "\u2026";
+function truncate2(label, maxCols) {
+  return truncateDisplay(label, maxCols);
 }
 
 // src/ui/components/DetailsPanel.tsx
@@ -21174,6 +21463,14 @@ function formatTokens2(n) {
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return n.toString();
 }
+function flattenChain(node, prefix, out) {
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i];
+    const last = i === node.children.length - 1;
+    out.push({ node: child, isLast: last, prefix });
+    flattenChain(child, prefix + (last ? "   " : "\u2502  "), out);
+  }
+}
 function AgentNodeRow({ node, isLast, prefix }) {
   const { session } = node;
   const tokens = getSessionTokens(session);
@@ -21181,9 +21478,8 @@ function AgentNodeRow({ node, isLast, prefix }) {
   const cost = getSessionCostSingle(session, pricing);
   const agentName = session.interactions[0]?.agent ?? session.interactions[0]?.role ?? "main";
   const connector = isLast ? "\u2514\u2500 " : "\u251C\u2500 ";
-  const childPrefix = prefix + (isLast ? "   " : "\u2502  ");
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Box_default, { flexDirection: "row", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Box_default, { flexDirection: "row", height: 1, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, overflow: "hidden", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { wrap: "truncate", children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.textDim, children: [
         prefix,
         connector
@@ -21196,27 +21492,16 @@ function AgentNodeRow({ node, isLast, prefix }) {
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.text, children: [
         " ",
         truncate3(session.title ?? session.id.slice(0, 8), 20)
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { flexGrow: 1 }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text, { color: colors.textDim, children: formatTokens2(tokens.total) }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text, { color: colors.textDim, children: " " }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.success, children: [
-        "$",
-        cost.toFixed(3)
       ] })
-    ] }),
-    node.children.map((child, i) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-      AgentNodeRow,
-      {
-        node: child,
-        isLast: i === node.children.length - 1,
-        prefix: childPrefix
-      },
-      child.session.id
-    ))
+    ] }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { width: 7, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text, { color: colors.textDim, children: formatTokens2(tokens.total) }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { width: 8, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.success, children: [
+      "$",
+      cost.toFixed(3)
+    ] }) })
   ] });
 }
-function AgentChainGraphInner({ agentTree }) {
+function AgentChainGraphInner({ agentTree, maxRows }) {
   const { session } = agentTree;
   const tokens = getSessionTokens(session);
   const pricing = getPricing(session.interactions[0]?.modelId ?? "");
@@ -21225,44 +21510,48 @@ function AgentChainGraphInner({ agentTree }) {
   if (agentTree.children.length === 0) {
     return null;
   }
+  const allRows = [];
+  flattenChain(agentTree, "", allRows);
+  const rows = maxRows !== void 0 ? allRows.slice(0, maxRows) : allRows;
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Box_default, { flexDirection: "column", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Box_default, { flexDirection: "row", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.cyan, bold: true, children: [
-        "[",
-        agentName,
-        "]"
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.text, children: [
-        " ",
-        truncate3(session.title ?? "root", 20)
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { flexGrow: 1 }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text, { color: colors.textDim, children: formatTokens2(tokens.total) }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text, { color: colors.textDim, children: " " }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.success, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Box_default, { flexDirection: "row", height: 1, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, overflow: "hidden", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { wrap: "truncate", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.cyan, bold: true, children: [
+          "[",
+          agentName,
+          "]"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.text, children: [
+          " ",
+          truncate3(session.title ?? "root", 20)
+        ] })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { width: 7, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text, { color: colors.textDim, children: formatTokens2(tokens.total) }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Box_default, { width: 8, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text, { color: colors.success, children: [
         "$",
         cost.toFixed(3)
-      ] })
+      ] }) })
     ] }),
-    agentTree.children.map((child, i) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    rows.map((row) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
       AgentNodeRow,
       {
-        node: child,
-        isLast: i === agentTree.children.length - 1,
-        prefix: ""
+        node: row.node,
+        isLast: row.isLast,
+        prefix: row.prefix
       },
-      child.session.id
+      row.node.session.id
     ))
   ] });
 }
 var AgentChainGraph = (0, import_react26.memo)(AgentChainGraphInner);
-function truncate3(s, max2) {
-  if (s.length <= max2) return s;
-  return s.slice(0, max2 - 1) + "\u2026";
+function truncate3(s, maxCols) {
+  return truncateDisplay(s, maxCols);
 }
 
 // src/ui/components/DetailsPanel.tsx
 var import_jsx_runtime5 = __toESM(require_jsx_runtime(), 1);
+var CHAIN_COLLAPSE_THRESHOLD = 5;
+var CHAIN_MAX_ROWS = 15;
 function StatRow({
   label,
   value,
@@ -21304,7 +21593,7 @@ function formatTokens3(n) {
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return n.toString();
 }
-function DetailsPanelInner({ workflow, height }) {
+function DetailsPanelInner({ workflow, height, chainCollapsed }) {
   const data = (0, import_react27.useMemo)(() => {
     if (!workflow) return null;
     const session = workflow.mainSession;
@@ -21325,6 +21614,11 @@ function DetailsPanelInner({ workflow, height }) {
     }
     const toolUsage = getToolUsage(session);
     const topTools = toolUsage.sort((a, b) => b.calls - a.calls).slice(0, 3);
+    const chainCount = workflow.subAgentSessions.length;
+    let chainTokens = 0;
+    for (const s of workflow.subAgentSessions) {
+      chainTokens += getSessionTokens(s).total;
+    }
     return {
       title: session.title ?? "Untitled",
       project: session.projectName ?? "\u2014",
@@ -21339,18 +21633,21 @@ function DetailsPanelInner({ workflow, height }) {
       modelBreakdown,
       topTools,
       agentTree: workflow.agentTree,
-      hasSubAgents: workflow.subAgentSessions.length > 0
+      hasSubAgents: chainCount > 0,
+      chainCount,
+      chainTokens
     };
   }, [workflow]);
   if (!data) {
     return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexDirection: "column", paddingX: 1, height, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.textDim, children: "Select a session" }) });
   }
+  const collapsed = chainCollapsed ?? data.chainCount > CHAIN_COLLAPSE_THRESHOLD;
   return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { flexDirection: "column", paddingX: 1, height, width: 64, overflow: "hidden", children: [
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { flexDirection: "column", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.accent, bold: true, children: data.title }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: colors.textMuted, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { wrap: "truncate", color: colors.accent, bold: true, children: truncateDisplay(data.title, 60) }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { wrap: "truncate", color: colors.textMuted, children: [
         "\u25CE ",
-        data.project
+        truncateDisplay(data.project, 58)
       ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { marginTop: 1, flexDirection: "column", children: [
@@ -21373,31 +21670,49 @@ function DetailsPanelInner({ workflow, height }) {
       )
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.purple, bold: true, children: "\u2500\u2500 MODELS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500" }) }),
-    Array.from(data.modelBreakdown.entries()).slice(0, 3).map(([model, stats]) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { flexDirection: "row", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.text, children: model.slice(0, 25) }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexGrow: 1 }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: colors.textMuted, children: [
+    Array.from(data.modelBreakdown.entries()).slice(0, 3).map(([model, stats]) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { flexDirection: "row", height: 1, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, overflow: "hidden", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { wrap: "truncate", color: colors.text, children: truncateDisplay(model, 25) }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { width: 6, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: colors.textMuted, children: [
         stats.count,
         "\xD7"
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { width: 1 }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.info, children: formatTokens3(stats.tokens) })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { width: 8, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.info, children: formatTokens3(stats.tokens) }) })
     ] }, model)),
     data.topTools.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.purple, bold: true, children: "\u2500\u2500 TOOLS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500" }) }),
-      data.topTools.map((tool) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { flexDirection: "row", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.text, children: tool.name.slice(0, 20) }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexGrow: 1 }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: tool.failures > 0 ? colors.warning : colors.success, children: [
+      data.topTools.map((tool) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { flexDirection: "row", height: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, overflow: "hidden", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { wrap: "truncate", color: colors.text, children: truncateDisplay(tool.name, 20) }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { width: 9, justifyContent: "flex-end", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: tool.failures > 0 ? colors.warning : colors.success, children: [
           tool.successes,
           "/",
           tool.calls
-        ] })
+        ] }) })
       ] }, tool.name))
     ] }),
     data.hasSubAgents && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.purple, bold: true, children: "\u2500\u2500 AGENT CHAIN \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500" }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(AgentChainGraph, { agentTree: data.agentTree })
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Box_default, { marginTop: 1, flexDirection: "row", height: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: colors.purple, bold: true, children: [
+          "\u2500\u2500 AGENT CHAIN (",
+          data.chainCount,
+          ") ",
+          collapsed ? "\u25B6" : "\u25BE"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexGrow: 1 }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text, { color: colors.textDim, children: "c" })
+      ] }),
+      collapsed ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexDirection: "row", height: 1, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, overflow: "hidden", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { wrap: "truncate", color: colors.textDim, children: [
+        data.chainCount,
+        " agents \xB7 ",
+        formatTokens3(data.chainTokens),
+        " \u2014 c:expand"
+      ] }) }) }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(AgentChainGraph, { agentTree: data.agentTree, maxRows: CHAIN_MAX_ROWS }),
+        data.chainCount > CHAIN_MAX_ROWS && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text, { color: colors.textDim, children: [
+          "\u2026 +",
+          data.chainCount - CHAIN_MAX_ROWS,
+          " more"
+        ] })
+      ] })
     ] })
   ] });
 }
@@ -21525,9 +21840,9 @@ function formatDuration2(ms) {
   if (ms < 1e3) return `${ms}ms`;
   return `${(ms / 1e3).toFixed(1)}s`;
 }
-function truncate4(s, max2) {
-  if (!s || s.length <= max2) return s;
-  return s.slice(0, max2 - 1) + "\u2026";
+function truncate4(s, maxCols) {
+  if (!s) return s;
+  return truncateDisplay(s, maxCols);
 }
 function lineMatchesQuery(line, q) {
   switch (line.kind) {
@@ -21874,7 +22189,7 @@ var MessagesPanel = (0, import_react28.memo)(MessagesPanelInner);
 
 // src/ui/screens/SessionsScreen.tsx
 var import_jsx_runtime7 = __toESM(require_jsx_runtime(), 1);
-function flattenWorkflow(workflow, workflowIndex) {
+function flattenWorkflow(workflow, workflowIndex, expandChildren) {
   const nodes = [];
   function walk(node) {
     nodes.push({
@@ -21885,6 +22200,7 @@ function flattenWorkflow(workflow, workflowIndex) {
       hasChildren: node.children.length > 0,
       agentNode: node
     });
+    if (node.depth === 0 && !expandChildren) return;
     for (const child of node.children) walk(child);
   }
   walk(workflow.agentTree);
@@ -21917,11 +22233,18 @@ function SessionsScreenInner({
   const [searchMode, setSearchMode] = (0, import_react29.useState)(false);
   const [searchQuery, setSearchQuery] = (0, import_react29.useState)("");
   const [globalMatchPos, setGlobalMatchPos] = (0, import_react29.useState)(-1);
+  const [expandedIds, setExpandedIds] = (0, import_react29.useState)(/* @__PURE__ */ new Set());
+  const [chainCollapsed, setChainCollapsed] = (0, import_react29.useState)(null);
   const [jumpToLine, setJumpToLine] = (0, import_react29.useState)(void 0);
   const jumpSeqRef = (0, import_react29.useRef)(0);
+  const searching = searchQuery.trim().length > 0;
+  const effectiveExpandedIds = (0, import_react29.useMemo)(() => {
+    if (!searching) return expandedIds;
+    return new Set(workflows.map((w) => w.id));
+  }, [searching, expandedIds, workflows]);
   const allFlatNodes = (0, import_react29.useMemo)(() => {
-    return workflows.flatMap((w, i) => flattenWorkflow(w, i));
-  }, [workflows]);
+    return workflows.flatMap((w, i) => flattenWorkflow(w, i, searching || expandedIds.has(w.id)));
+  }, [workflows, expandedIds, searching]);
   const flatNodes = (0, import_react29.useMemo)(() => {
     if (!searchQuery.trim()) return allFlatNodes;
     return allFlatNodes.filter((n) => sessionMatchesQuery(n.session, searchQuery));
@@ -21943,6 +22266,14 @@ function SessionsScreenInner({
   }, [flatNodes, searchQuery]);
   const clampedIndex = Math.min(selectedIndex, Math.max(0, flatNodes.length - 1));
   const selectedNode = flatNodes[clampedIndex] ?? null;
+  const toggleWorkflowExpanded = (0, import_react29.useCallback)((workflowId) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(workflowId)) next.delete(workflowId);
+      else next.add(workflowId);
+      return next;
+    });
+  }, []);
   const selectedWorkflow = (0, import_react29.useMemo)(() => {
     if (!selectedNode) return null;
     const w = workflows[selectedNode.workflowIndex];
@@ -21957,6 +22288,21 @@ function SessionsScreenInner({
     }
     return w;
   }, [selectedNode, workflows]);
+  const selectedWorkflowId = selectedWorkflow?.id ?? null;
+  const prevWorkflowIdRef = (0, import_react29.useRef)(null);
+  if (prevWorkflowIdRef.current !== selectedWorkflowId) {
+    prevWorkflowIdRef.current = selectedWorkflowId;
+    if (chainCollapsed !== null) setChainCollapsed(null);
+  }
+  const toggleChain = (0, import_react29.useCallback)(() => {
+    setChainCollapsed((prev) => {
+      if (prev !== null) return !prev;
+      const subs = selectedWorkflowRef.current?.subAgentSessions.length ?? 0;
+      return !(subs > CHAIN_COLLAPSE_THRESHOLD);
+    });
+  }, []);
+  const selectedWorkflowRef = (0, import_react29.useRef)(selectedWorkflow);
+  selectedWorkflowRef.current = selectedWorkflow;
   const leftWidth = Math.floor(terminalWidth * 0.35);
   const rightWidth = terminalWidth - leftWidth - 2;
   const statusBarHeight = 2;
@@ -21973,6 +22319,10 @@ function SessionsScreenInner({
   globalMatchPosRef.current = globalMatchPos;
   const clampedIndexRef = (0, import_react29.useRef)(clampedIndex);
   clampedIndexRef.current = clampedIndex;
+  const flatNodesRef = (0, import_react29.useRef)(flatNodes);
+  flatNodesRef.current = flatNodes;
+  const workflowsRef = (0, import_react29.useRef)(workflows);
+  workflowsRef.current = workflows;
   use_input_default(
     (input, key) => {
       if (searchMode) {
@@ -22032,6 +22382,18 @@ function SessionsScreenInner({
         }
         if (input === "G") {
           handleSelect(flatNodes.length - 1);
+          return;
+        }
+        if (key.return) {
+          const node = flatNodesRef.current[clampedIndexRef.current];
+          const w = node ? workflowsRef.current[node.workflowIndex] : void 0;
+          if (w && (w.subAgentSessions.length > 0 || w.agentTree.children.length > 0)) {
+            toggleWorkflowExpanded(w.id);
+          }
+          return;
+        }
+        if (input === "c") {
+          toggleChain();
           return;
         }
       } else {
@@ -22105,7 +22467,8 @@ function SessionsScreenInner({
                   const idx = flatNodes.findIndex((n) => n.id === id);
                   if (idx >= 0) handleSelect(idx);
                 },
-                maxHeight: innerHeight - 1
+                maxHeight: innerHeight - 1,
+                expandedIds: effectiveExpandedIds
               }
             )
           ]
@@ -22127,7 +22490,7 @@ function SessionsScreenInner({
               /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Box_default, { flexGrow: 1 }),
               /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text, { color: colors.textMuted, children: "Tab:switch" })
             ] }),
-            rightMode === "stats" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(DetailsPanel, { workflow: selectedWorkflow, height: innerHeight - 1 }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            rightMode === "stats" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(DetailsPanel, { workflow: selectedWorkflow, height: innerHeight - 1, chainCollapsed }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
               MessagesPanel,
               {
                 session: selectedNode?.session ?? null,
@@ -22144,7 +22507,7 @@ function SessionsScreenInner({
     /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
       StatusBar,
       {
-        hints: searchMode ? "Type to search \xB7 Enter:confirm \xB7 Esc:clear" : rightMode === "messages" ? `j/k:scroll  d/u:\xBDpage  g/G:top/bot  Enter:expand  f:filter${searchQuery ? "  n/N:match" : ""}  [:prev  ]:next  Tab:stats  q:quit` : `j/k:nav  g/G:top/bot  /:search${searchQuery ? "  n/N:match" : ""}  Tab:messages  2:tools  3:overview  r:refresh  q:quit`
+        hints: searchMode ? "Type to search \xB7 Enter:confirm \xB7 Esc:clear" : rightMode === "messages" ? `j/k:scroll  d/u:\xBDpage  g/G:top/bot  Enter:expand  f:filter${searchQuery ? "  n/N:match" : ""}  [:prev  ]:next  Tab:stats  q:quit` : `j/k:nav  Enter:expand  c:chain  g/G:top/bot  /:search${searchQuery ? "  n/N:match" : ""}  Tab:messages  2:tools  3:overview  r:refresh  q:quit`
       }
     )
   ] });
@@ -22330,9 +22693,8 @@ function ToolsScreenInner({ workflows, isActive, contentHeight, terminalWidth })
   ] });
 }
 var ToolsScreen = (0, import_react30.memo)(ToolsScreenInner);
-function truncate5(s, max2) {
-  if (s.length <= max2) return s;
-  return s.slice(0, max2 - 1) + "\u2026";
+function truncate5(s, maxCols) {
+  return truncateDisplay(s, maxCols);
 }
 
 // src/ui/screens/OverviewScreen.tsx
@@ -22617,9 +22979,8 @@ function OverviewScreenInner({ workflows, isActive, contentHeight, terminalWidth
   ] });
 }
 var OverviewScreen = (0, import_react32.memo)(OverviewScreenInner);
-function truncate6(s, max2) {
-  if (s.length <= max2) return s;
-  return s.slice(0, max2 - 1) + "\u2026";
+function truncate6(s, maxCols) {
+  return truncateDisplay(s, maxCols);
 }
 
 // src/data/sqlite.ts
@@ -23572,7 +23933,7 @@ var jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/;
 var durationRegex = /^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/;
 var emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
 var _emojiRegex = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
-var emojiRegex2;
+var emojiRegex5;
 var ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
 var ipv4CidrRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/(3[0-2]|[12]?[0-9])$/;
 var ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
@@ -23724,10 +24085,10 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "emoji") {
-        if (!emojiRegex2) {
-          emojiRegex2 = new RegExp(_emojiRegex, "u");
+        if (!emojiRegex5) {
+          emojiRegex5 = new RegExp(_emojiRegex, "u");
         }
-        if (!emojiRegex2.test(input.data)) {
+        if (!emojiRegex5.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "emoji",
@@ -26943,7 +27304,7 @@ function buildAgentNode(session, sessionMap, depth) {
     }
   }
   children.sort(
-    (a, b) => (a.session.timeUpdated ?? a.session.timeCreated ?? 0) - (b.session.timeUpdated ?? b.session.timeCreated ?? 0)
+    (a, b) => (b.session.timeUpdated ?? b.session.timeCreated ?? 0) - (a.session.timeUpdated ?? a.session.timeCreated ?? 0)
   );
   return { session, children, depth };
 }
@@ -26954,6 +27315,14 @@ function collectAllDescendants(node) {
     result.push(...collectAllDescendants(child));
   }
   return result;
+}
+function latestActivity(sessions) {
+  let max2 = 0;
+  for (const s of sessions) {
+    const ts = s.timeUpdated ?? s.timeCreated ?? 0;
+    if (ts > max2) max2 = ts;
+  }
+  return max2;
 }
 function groupSessionsToWorkflows(sessions, _registry) {
   const sessionMap = new Map(sessions.map((s) => [s.id, s]));
@@ -26969,6 +27338,9 @@ function groupSessionsToWorkflows(sessions, _registry) {
       agentTree
     });
   }
+  workflows.sort(
+    (a, b) => latestActivity([b.mainSession, ...b.subAgentSessions]) - latestActivity([a.mainSession, ...a.subAgentSessions])
+  );
   return workflows;
 }
 
@@ -27136,7 +27508,7 @@ function App2({ refreshInterval = 2e3 }) {
 }
 
 // src/cli.ts
-var pkg = true ? { version: "3.5.12", name: "opencode-top" } : devPkg();
+var pkg = true ? { version: "3.5.13", name: "opencode-top" } : devPkg();
 program.name(pkg.name).version(pkg.version).description("Monitor OpenCode AI coding sessions");
 program.command("live").description("Start live monitoring dashboard").option("-i, --interval <ms>", "Refresh interval in milliseconds", "2000").action((options) => {
   const refreshInterval = Number.parseInt(options.interval, 10);

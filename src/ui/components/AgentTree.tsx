@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 import { Box, Text } from "ink";
 import { colors } from "../theme";
+import { truncateDisplay } from "../text";
 import type { Workflow, FlatNode } from "../../core/types";
 import { getSessionTokens, getSessionCostSingle } from "../../core/session";
 import { getPricing } from "../../data/pricing";
@@ -12,6 +13,7 @@ interface AgentTreeProps {
   flatNodes: FlatNode[];
   onSelect: (id: string) => void;
   maxHeight?: number;
+  expandedIds?: Set<string>;
 }
 
 function formatTokens(n: number): string {
@@ -35,7 +37,7 @@ function formatDate(ts: number | null): string {
   return `${mm}/${dd} ${hh}:${min}`;
 }
 
-function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }: AgentTreeProps) {
+function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20, expandedIds }: AgentTreeProps) {
   const headerHeight = 2;
   const visibleCount = Math.max(1, maxHeight - headerHeight);
   const selectedIndex = flatNodes.findIndex((n) => n.id === selectedId);
@@ -65,8 +67,11 @@ function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }: Ag
         const agentName = node.session.interactions[0]?.agent ?? null;
 
         const indent = "  ".repeat(node.depth);
+        const isExpanded = node.depth === 0 && node.hasChildren
+          ? (expandedIds?.has(workflows[node.workflowIndex]?.id ?? "") ?? false)
+          : false;
         const prefix = node.depth === 0
-          ? (node.hasChildren ? "▸ " : "  ")
+          ? (node.hasChildren ? (isExpanded ? "▾ " : "▸ ") : "  ")
           : (node.hasChildren ? "╰▸ " : "╰─ ");
 
         const label = node.depth === 0
@@ -76,21 +81,27 @@ function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }: Ag
         const date = formatDate(node.session.timeUpdated ?? node.session.timeCreated);
         return (
           <Box key={node.id} flexDirection="row" height={1}>
-            {isSelected ? (
-              <Text color={colors.bgHighlight} backgroundColor={colors.accent} bold>
-                {`▶ ${indent}${prefix}${label}`}
+            {/* Label flexes; wrap="truncate" guarantees the row never wraps
+                into 2 visual lines (the overprint bug), even for CJK titles */}
+            <Box flexGrow={1} flexShrink={1} overflow="hidden">
+              <Text
+                wrap="truncate"
+                color={isSelected ? colors.bgHighlight : node.depth === 0 ? colors.text : colors.textDim}
+                backgroundColor={isSelected ? colors.accent : undefined}
+                bold={isSelected}
+              >
+                {`${isSelected ? "▶ " : "  "}${indent}${prefix}${label}`}
               </Text>
-            ) : (
-              <Text color={node.depth === 0 ? colors.text : colors.textDim}>
-                {`  ${indent}${prefix}${label}`}
-              </Text>
-            )}
-            <Box flexGrow={1} />
-            {date && <Text color={colors.textMuted}>{date} </Text>}
-            <Text color={colors.textDim}>{formatTokens(tokens.total)}</Text>
-            <Box width={1} />
-            <Text color={cost.greaterThan(0) ? colors.success : colors.textMuted}>{formatCost(cost)}</Text>
-            <Box width={1} />
+            </Box>
+            <Box width={12}>
+              {date ? <Text color={colors.textMuted}>{date}</Text> : null}
+            </Box>
+            <Box width={7} justifyContent="flex-end">
+              <Text color={colors.textDim}>{formatTokens(tokens.total)}</Text>
+            </Box>
+            <Box width={8} justifyContent="flex-end">
+              <Text color={cost.greaterThan(0) ? colors.success : colors.textMuted}>{formatCost(cost)}</Text>
+            </Box>
           </Box>
         );
       })}
@@ -108,7 +119,6 @@ function AgentTreeInner({ workflows, selectedId, flatNodes, maxHeight = 20 }: Ag
 
 export const AgentTree = memo(AgentTreeInner);
 
-function truncate(label: string, maxLen: number): string {
-  if (label.length <= maxLen) return label;
-  return label.slice(0, maxLen - 1) + "…";
+function truncate(label: string, maxCols: number): string {
+  return truncateDisplay(label, maxCols);
 }

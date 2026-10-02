@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 import { Box, Text } from "ink";
 import { colors } from "../theme";
+import { truncateDisplay } from "../text";
 import type { AgentNode } from "../../core/types";
 import { getSessionTokens, getSessionCostSingle } from "../../core/session";
 import { getPricing } from "../../data/pricing";
@@ -11,13 +12,22 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-interface AgentNodeRowProps {
+interface FlatChainRow {
   node: AgentNode;
   isLast: boolean;
   prefix: string;
 }
 
-function AgentNodeRow({ node, isLast, prefix }: AgentNodeRowProps) {
+function flattenChain(node: AgentNode, prefix: string, out: FlatChainRow[]): void {
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i];
+    const last = i === node.children.length - 1;
+    out.push({ node: child, isLast: last, prefix });
+    flattenChain(child, prefix + (last ? "   " : "│  "), out);
+  }
+}
+
+function AgentNodeRow({ node, isLast, prefix }: FlatChainRow) {
   const { session } = node;
   const tokens = getSessionTokens(session);
   const pricing = getPricing(session.interactions[0]?.modelId ?? "");
@@ -25,36 +35,32 @@ function AgentNodeRow({ node, isLast, prefix }: AgentNodeRowProps) {
   const agentName = session.interactions[0]?.agent ?? session.interactions[0]?.role ?? "main";
 
   const connector = isLast ? "└─ " : "├─ ";
-  const childPrefix = prefix + (isLast ? "   " : "│  ");
 
   return (
-    <>
-      <Box flexDirection="row">
-        <Text color={colors.textDim}>{prefix}{connector}</Text>
-        <Text color={colors.cyan}>[{agentName}]</Text>
-        <Text color={colors.text}> {truncate(session.title ?? session.id.slice(0, 8), 20)}</Text>
-        <Box flexGrow={1} />
+    <Box flexDirection="row" height={1}>
+      <Box flexGrow={1} flexShrink={1} overflow="hidden">
+        <Text wrap="truncate">
+          <Text color={colors.textDim}>{prefix}{connector}</Text>
+          <Text color={colors.cyan}>[{agentName}]</Text>
+          <Text color={colors.text}> {truncate(session.title ?? session.id.slice(0, 8), 20)}</Text>
+        </Text>
+      </Box>
+      <Box width={7} justifyContent="flex-end">
         <Text color={colors.textDim}>{formatTokens(tokens.total)}</Text>
-        <Text color={colors.textDim}> </Text>
+      </Box>
+      <Box width={8} justifyContent="flex-end">
         <Text color={colors.success}>${cost.toFixed(3)}</Text>
       </Box>
-      {node.children.map((child, i) => (
-        <AgentNodeRow
-          key={child.session.id}
-          node={child}
-          isLast={i === node.children.length - 1}
-          prefix={childPrefix}
-        />
-      ))}
-    </>
+    </Box>
   );
 }
 
 interface AgentChainGraphProps {
   agentTree: AgentNode;
+  maxRows?: number;
 }
 
-function AgentChainGraphInner({ agentTree }: AgentChainGraphProps) {
+function AgentChainGraphInner({ agentTree, maxRows }: AgentChainGraphProps) {
   const { session } = agentTree;
   const tokens = getSessionTokens(session);
   const pricing = getPricing(session.interactions[0]?.modelId ?? "");
@@ -65,22 +71,32 @@ function AgentChainGraphInner({ agentTree }: AgentChainGraphProps) {
     return null;
   }
 
+  const allRows: FlatChainRow[] = [];
+  flattenChain(agentTree, "", allRows);
+  const rows = maxRows !== undefined ? allRows.slice(0, maxRows) : allRows;
+
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row">
-        <Text color={colors.cyan} bold>[{agentName}]</Text>
-        <Text color={colors.text}> {truncate(session.title ?? "root", 20)}</Text>
-        <Box flexGrow={1} />
-        <Text color={colors.textDim}>{formatTokens(tokens.total)}</Text>
-        <Text color={colors.textDim}> </Text>
-        <Text color={colors.success}>${cost.toFixed(3)}</Text>
+      <Box flexDirection="row" height={1}>
+        <Box flexGrow={1} flexShrink={1} overflow="hidden">
+          <Text wrap="truncate">
+            <Text color={colors.cyan} bold>[{agentName}]</Text>
+            <Text color={colors.text}> {truncate(session.title ?? "root", 20)}</Text>
+          </Text>
+        </Box>
+        <Box width={7} justifyContent="flex-end">
+          <Text color={colors.textDim}>{formatTokens(tokens.total)}</Text>
+        </Box>
+        <Box width={8} justifyContent="flex-end">
+          <Text color={colors.success}>${cost.toFixed(3)}</Text>
+        </Box>
       </Box>
-      {agentTree.children.map((child, i) => (
+      {rows.map((row) => (
         <AgentNodeRow
-          key={child.session.id}
-          node={child}
-          isLast={i === agentTree.children.length - 1}
-          prefix=""
+          key={row.node.session.id}
+          node={row.node}
+          isLast={row.isLast}
+          prefix={row.prefix}
         />
       ))}
     </Box>
@@ -89,7 +105,6 @@ function AgentChainGraphInner({ agentTree }: AgentChainGraphProps) {
 
 export const AgentChainGraph = memo(AgentChainGraphInner);
 
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1) + "…";
+function truncate(s: string, maxCols: number): string {
+  return truncateDisplay(s, maxCols);
 }

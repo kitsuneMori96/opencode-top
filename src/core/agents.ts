@@ -35,11 +35,11 @@ function buildAgentNode(
       children.push(buildAgentNode(s, sessionMap, depth + 1));
     }
   }
-  // Sort children by most recent activity (timeUpdated preferred)
+  // Sort children by most recent activity first (timeUpdated preferred)
   children.sort(
     (a, b) =>
-      ((a.session.timeUpdated ?? a.session.timeCreated ?? 0) as number) -
-      ((b.session.timeUpdated ?? b.session.timeCreated ?? 0) as number)
+      ((b.session.timeUpdated ?? b.session.timeCreated ?? 0) as number) -
+      ((a.session.timeUpdated ?? a.session.timeCreated ?? 0) as number)
   );
   return { session, children, depth };
 }
@@ -51,6 +51,15 @@ function collectAllDescendants(node: AgentNode): Session[] {
     result.push(...collectAllDescendants(child));
   }
   return result;
+}
+
+function latestActivity(sessions: Session[]): number {
+  let max = 0;
+  for (const s of sessions) {
+    const ts = s.timeUpdated ?? s.timeCreated ?? 0;
+    if (ts > max) max = ts;
+  }
+  return max;
 }
 
 export function groupSessionsToWorkflows(
@@ -75,6 +84,13 @@ export function groupSessionsToWorkflows(
       agentTree,
     });
   }
+
+  // Most recently active workflow first
+  workflows.sort(
+    (a, b) =>
+      latestActivity([b.mainSession, ...b.subAgentSessions]) -
+      latestActivity([a.mainSession, ...a.subAgentSessions])
+  );
 
   return workflows;
 }

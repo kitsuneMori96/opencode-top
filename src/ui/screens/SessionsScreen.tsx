@@ -4,7 +4,7 @@ import TextInput from "ink-text-input";
 import { colors } from "../theme";
 import { StatusBar } from "../components/StatusBar";
 import { AgentTree } from "../components/AgentTree";
-import { DetailsPanel } from "../components/DetailsPanel";
+import { DetailsPanel, CHAIN_COLLAPSE_THRESHOLD } from "../components/DetailsPanel";
 import { MessagesPanel, buildLines, lineMatchesQuery } from "../components/MessagesPanel";
 import type { Workflow, AgentNode, FlatNode, Session } from "../../core/types";
 
@@ -17,7 +17,7 @@ interface SessionsScreenProps {
 
 type RightMode = "stats" | "messages";
 
-function flattenWorkflow(workflow: Workflow, workflowIndex: number): FlatNode[] {
+function flattenWorkflow(workflow: Workflow, workflowIndex: number, expandChildren: boolean): FlatNode[] {
   const nodes: FlatNode[] = [];
   function walk(node: AgentNode) {
     nodes.push({
@@ -28,6 +28,8 @@ function flattenWorkflow(workflow: Workflow, workflowIndex: number): FlatNode[] 
       hasChildren: node.children.length > 0,
       agentNode: node,
     });
+    // Collapsed workflows show only the root session
+    if (node.depth === 0 && !expandChildren) return;
     for (const child of node.children) walk(child);
   }
   walk(workflow.agentTree);
@@ -62,13 +64,25 @@ function SessionsScreenInner({
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [globalMatchPos, setGlobalMatchPos] = useState(-1); // index into globalMatches
+  // Workflows expanded in the left tree (default: all collapsed, roots only)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // AGENT CHAIN fold override: null = auto (collapse when subs exceed threshold)
+  const [chainCollapsed, setChainCollapsed] = useState<boolean | null>(null);
   // jumpToLine: {line, seq} — seq always increments so the effect fires even for same line
   const [jumpToLine, setJumpToLine] = useState<{ line: number; seq: number } | undefined>(undefined);
   const jumpSeqRef = useRef(0);
 
+  // While searching, treat every workflow as expanded so matches stay visible
+  const searching = searchQuery.trim().length > 0;
+
+  const effectiveExpandedIds = useMemo(() => {
+    if (!searching) return expandedIds;
+    return new Set(workflows.map((w) => w.id));
+  }, [searching, expandedIds, workflows]);
+
   const allFlatNodes = useMemo(() => {
-    return workflows.flatMap((w, i) => flattenWorkflow(w, i));
-  }, [workflows]);
+    return workflows.flatMap((w, i) => flattenWorkflow(w, i, searching || expandedIds.has(w.id)));
+  }, [workflows, expandedIds, searching]);
 
   const flatNodes = useMemo(() => {
     if (!searchQuery.trim()) return allFlatNodes;
@@ -95,6 +109,15 @@ function SessionsScreenInner({
   const clampedIndex = Math.min(selectedIndex, Math.max(0, flatNodes.length - 1));
   const selectedNode = flatNodes[clampedIndex] ?? null;
 
+  const toggleWorkflowExpanded = useCallback((workflowId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(workflowId)) next.delete(workflowId);
+      else next.add(workflowId);
+      return next;
+    });
+  }, []);
+
   const selectedWorkflow = useMemo(() => {
     if (!selectedNode) return null;
     const w = workflows[selectedNode.workflowIndex];
@@ -109,6 +132,26 @@ function SessionsScreenInner({
     }
     return w;
   }, [selectedNode, workflows]);
+
+  const selectedWorkflowId = selectedWorkflow?.id ?? null;
+
+  // Reset chain fold override when switching sessions (back to auto)
+  const prevWorkflowIdRef = useRef<string | null>(null);
+  if (prevWorkflowIdRef.current !== selectedWorkflowId) {
+    prevWorkflowIdRef.current = selectedWorkflowId;
+    if (chainCollapsed !== null) setChainCollapsed(null);
+  }
+
+  const toggleChain = useCallback(() => {
+    setChainCollapsed((prev) => {
+      if (prev !== null) return !prev;
+      const subs = selectedWorkflowRef.current?.subAgentSessions.length ?? 0;
+      return !(subs > CHAIN_COLLAPSE_THRESHOLD);
+    });
+  }, []);
+
+  const selectedWorkflowRef = useRef(selectedWorkflow);
+  selectedWorkflowRef.current = selectedWorkflow;
 
   const leftWidth = Math.floor(terminalWidth * 0.35);
   const rightWidth = terminalWidth - leftWidth - 2;
@@ -129,6 +172,10 @@ function SessionsScreenInner({
   globalMatchPosRef.current = globalMatchPos;
   const clampedIndexRef = useRef(clampedIndex);
   clampedIndexRef.current = clampedIndex;
+  const flatNodesRef = useRef(flatNodes);
+  flatNodesRef.current = flatNodes;
+  const workflowsRef = useRef(workflows);
+  workflowsRef.current = workflows;
 
   // SessionsScreen only handles: tab switch, tree nav (stats mode), session switch (messages mode)
   useInput(
@@ -185,6 +232,15 @@ function SessionsScreenInner({
         if (key.downArrow || input === "j") { handleSelect(Math.min(flatNodes.length - 1, clampedIndex + 1)); return; }
         if (input === "g") { handleSelect(0); return; }
         if (input === "G") { handleSelect(flatNodes.length - 1); return; }
+        if (key.return) {
+          const node = flatNodesRef.current[clampedIndexRef.current];
+          const w = node ? workflowsRef.current[node.workflowIndex] : undefined;
+          if (w && (w.subAgentSessions.length > 0 || w.agentTree.children.length > 0)) {
+            toggleWorkflowExpanded(w.id);
+          }
+          return;
+        }
+        if (input === "c") { toggleChain(); return; }
       } else {
         // In messages mode, [ and ] switch session
         if (input === "[") { handleSelect(Math.max(0, clampedIndex - 1)); return; }
@@ -240,6 +296,7 @@ function SessionsScreenInner({
               if (idx >= 0) handleSelect(idx);
             }}
             maxHeight={innerHeight - 1}
+            expandedIds={effectiveExpandedIds}
           />
         </Box>
 
@@ -269,7 +326,7 @@ function SessionsScreenInner({
           </Box>
 
           {rightMode === "stats" ? (
-            <DetailsPanel workflow={selectedWorkflow} height={innerHeight - 1} />
+            <DetailsPanel workflow={selectedWorkflow} height={innerHeight - 1} chainCollapsed={chainCollapsed} />
           ) : (
             <MessagesPanel
               session={selectedNode?.session ?? null}
@@ -288,7 +345,7 @@ function SessionsScreenInner({
             ? "Type to search · Enter:confirm · Esc:clear"
             : rightMode === "messages"
             ? `j/k:scroll  d/u:½page  g/G:top/bot  Enter:expand  f:filter${searchQuery ? "  n/N:match" : ""}  [:prev  ]:next  Tab:stats  q:quit`
-            : `j/k:nav  g/G:top/bot  /:search${searchQuery ? "  n/N:match" : ""}  Tab:messages  2:tools  3:overview  r:refresh  q:quit`
+            : `j/k:nav  Enter:expand  c:chain  g/G:top/bot  /:search${searchQuery ? "  n/N:match" : ""}  Tab:messages  2:tools  3:overview  r:refresh  q:quit`
         }
       />
     </Box>

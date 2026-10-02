@@ -1,6 +1,7 @@
 import React, { useMemo, memo, useEffect, useState, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import { colors } from "../theme";
+import { truncateDisplay } from "../text";
 import type { Session, Interaction, MessagePart } from "../../core/types";
 
 interface MessagesPanelProps {
@@ -150,9 +151,9 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function truncate(s: string, max: number): string {
-  if (!s || s.length <= max) return s;
-  return s.slice(0, max - 1) + "…";
+function truncate(s: string, maxCols: number): string {
+  if (!s) return s;
+  return truncateDisplay(s, maxCols);
 }
 
 export function lineMatchesQuery(line: MsgLine, q: string): boolean {

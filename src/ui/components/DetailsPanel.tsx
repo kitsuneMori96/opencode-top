@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react";
 import { Box, Text } from "ink";
 import { colors } from "../theme";
+import { truncateDisplay } from "../text";
 import type { Workflow } from "../../core/types";
 import {
   getSessionTokens,
@@ -15,7 +16,14 @@ import { AgentChainGraph } from "./AgentChainGraph";
 interface DetailsPanelProps {
   workflow: Workflow | null;
   height?: number;
+  /** null = auto (collapse when sub-agents exceed threshold) */
+  chainCollapsed: boolean | null;
 }
+
+/** Sub-agent count above which AGENT CHAIN starts collapsed */
+export const CHAIN_COLLAPSE_THRESHOLD = 5;
+/** Max chain rows shown when expanded */
+export const CHAIN_MAX_ROWS = 15;
 
 function StatRow({
   label,
@@ -74,7 +82,7 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
+function DetailsPanelInner({ workflow, height, chainCollapsed }: DetailsPanelProps) {
   const data = useMemo(() => {
     if (!workflow) return null;
 
@@ -102,6 +110,12 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
       .sort((a, b) => b.calls - a.calls)
       .slice(0, 3);
 
+    const chainCount = workflow.subAgentSessions.length;
+    let chainTokens = 0;
+    for (const s of workflow.subAgentSessions) {
+      chainTokens += getSessionTokens(s).total;
+    }
+
     return {
       title: session.title ?? "Untitled",
       project: session.projectName ?? "—",
@@ -116,7 +130,9 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
       modelBreakdown,
       topTools,
       agentTree: workflow.agentTree,
-      hasSubAgents: workflow.subAgentSessions.length > 0,
+      hasSubAgents: chainCount > 0,
+      chainCount,
+      chainTokens,
     };
   }, [workflow]);
 
@@ -128,11 +144,15 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
     );
   }
 
+  // Panel inner width = 64 - 2 (paddingX). Titles must never wrap,
+  // or every row below shifts and overprints (the Stats-panel bug).
+  const collapsed = chainCollapsed ?? data.chainCount > CHAIN_COLLAPSE_THRESHOLD;
+
   return (
     <Box flexDirection="column" paddingX={1} height={height} width={64} overflow="hidden">
       <Box flexDirection="column">
-        <Text color={colors.accent} bold>{data.title}</Text>
-        <Text color={colors.textMuted}>◎ {data.project}</Text>
+        <Text wrap="truncate" color={colors.accent} bold>{truncateDisplay(data.title, 60)}</Text>
+        <Text wrap="truncate" color={colors.textMuted}>◎ {truncateDisplay(data.project, 58)}</Text>
       </Box>
 
       <Box marginTop={1} flexDirection="column">
@@ -159,12 +179,16 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
       {Array.from(data.modelBreakdown.entries())
         .slice(0, 3)
         .map(([model, stats]) => (
-          <Box key={model} flexDirection="row">
-            <Text color={colors.text}>{model.slice(0, 25)}</Text>
-            <Box flexGrow={1} />
-            <Text color={colors.textMuted}>{stats.count}×</Text>
-            <Box width={1} />
-            <Text color={colors.info}>{formatTokens(stats.tokens)}</Text>
+          <Box key={model} flexDirection="row" height={1}>
+            <Box flexGrow={1} flexShrink={1} overflow="hidden">
+              <Text wrap="truncate" color={colors.text}>{truncateDisplay(model, 25)}</Text>
+            </Box>
+            <Box width={6} justifyContent="flex-end">
+              <Text color={colors.textMuted}>{stats.count}×</Text>
+            </Box>
+            <Box width={8} justifyContent="flex-end">
+              <Text color={colors.info}>{formatTokens(stats.tokens)}</Text>
+            </Box>
           </Box>
         ))}
 
@@ -174,12 +198,15 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
             <Text color={colors.purple} bold>── TOOLS ──────────────────</Text>
           </Box>
           {data.topTools.map((tool) => (
-            <Box key={tool.name} flexDirection="row">
-              <Text color={colors.text}>{tool.name.slice(0, 20)}</Text>
-              <Box flexGrow={1} />
-              <Text color={tool.failures > 0 ? colors.warning : colors.success}>
-                {tool.successes}/{tool.calls}
-              </Text>
+            <Box key={tool.name} flexDirection="row" height={1}>
+              <Box flexGrow={1} flexShrink={1} overflow="hidden">
+                <Text wrap="truncate" color={colors.text}>{truncateDisplay(tool.name, 20)}</Text>
+              </Box>
+              <Box width={9} justifyContent="flex-end">
+                <Text color={tool.failures > 0 ? colors.warning : colors.success}>
+                  {tool.successes}/{tool.calls}
+                </Text>
+              </Box>
             </Box>
           ))}
         </>
@@ -187,10 +214,27 @@ function DetailsPanelInner({ workflow, height }: DetailsPanelProps) {
 
       {data.hasSubAgents && (
         <>
-          <Box marginTop={1}>
-            <Text color={colors.purple} bold>── AGENT CHAIN ────────────</Text>
+          <Box marginTop={1} flexDirection="row" height={1}>
+            <Text color={colors.purple} bold>── AGENT CHAIN ({data.chainCount}) {collapsed ? "▶" : "▾"}</Text>
+            <Box flexGrow={1} />
+            <Text color={colors.textDim}>c</Text>
           </Box>
-          <AgentChainGraph agentTree={data.agentTree} />
+          {collapsed ? (
+            <Box flexDirection="row" height={1}>
+              <Box flexGrow={1} flexShrink={1} overflow="hidden">
+                <Text wrap="truncate" color={colors.textDim}>
+                  {data.chainCount} agents · {formatTokens(data.chainTokens)} — c:expand
+                </Text>
+              </Box>
+            </Box>
+          ) : (
+            <>
+              <AgentChainGraph agentTree={data.agentTree} maxRows={CHAIN_MAX_ROWS} />
+              {data.chainCount > CHAIN_MAX_ROWS && (
+                <Text color={colors.textDim}>… +{data.chainCount - CHAIN_MAX_ROWS} more</Text>
+              )}
+            </>
+          )}
         </>
       )}
     </Box>

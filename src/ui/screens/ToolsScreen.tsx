@@ -1,6 +1,7 @@
 import React, { useState, useMemo, memo } from "react";
 import { Box, Text, useInput } from "ink";
 import { colors } from "../theme";
+import { truncateDisplay } from "../text";
 import { StatusBar } from "../components/StatusBar";
 import type { Workflow, ToolUsage } from "../../core/types";
 import { getToolUsage } from "../../core/session";
@@ -241,7 +242,6 @@ function ToolsScreenInner({ workflows, isActive, contentHeight, terminalWidth }:
 
 export const ToolsScreen = memo(ToolsScreenInner);
 
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1) + "…";
+function truncate(s: string, maxCols: number): string {
+  return truncateDisplay(s, maxCols);
 }

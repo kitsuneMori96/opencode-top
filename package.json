@@ -1,6 +1,6 @@
 {
   "name": "opencode-top",
-  "version": "3.5.12",
+  "version": "3.5.13",
   "description": "Monitor OpenCode AI coding sessions - Token usage, costs, and agent analytics",
   "type": "module",
   "files": [
@@ -26,6 +26,7 @@
     "ink": "^5.0.1",
     "ink-text-input": "^6.0.0",
     "react": "^18.3.1",
+    "string-width": "^8.3.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -33,6 +34,7 @@
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.3",
     "esbuild": "^0.27.4",
+    "ink-testing-library": "^4.0.0",
     "patch-package": "^8.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
