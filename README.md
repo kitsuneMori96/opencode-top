@@ -64,6 +64,7 @@ Requires OpenCode to have been run at least once (reads from `~/.local/share/ope
 
 - Node.js >= 20
 - OpenCode installed and used at least once
+- Supports both OpenCode v1 (`session`/`message`/`part`) and v2 (`session_v2`/`session_message`) databases — the schema is detected automatically
 
 ## Development
 

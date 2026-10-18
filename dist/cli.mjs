@@ -27089,16 +27089,104 @@ var PartDataSchema = external_exports.object({
   hash: external_exports.string().optional(),
   files: external_exports.array(external_exports.string()).optional()
 }).passthrough();
+var ContentItemSchema = external_exports.object({
+  type: external_exports.string().optional(),
+  id: external_exports.string().optional(),
+  name: external_exports.string().optional(),
+  text: external_exports.string().optional(),
+  state: external_exports.object({
+    status: external_exports.string().optional(),
+    input: external_exports.record(external_exports.unknown()).optional(),
+    output: external_exports.string().optional(),
+    title: external_exports.string().optional(),
+    content: external_exports.array(
+      external_exports.object({
+        type: external_exports.string().optional(),
+        text: external_exports.string().optional()
+      }).passthrough()
+    ).optional(),
+    metadata: external_exports.object({
+      output: external_exports.string().optional(),
+      exit: external_exports.number().optional(),
+      exitCode: external_exports.number().optional(),
+      truncated: external_exports.boolean().optional()
+    }).passthrough().optional(),
+    error: external_exports.object({
+      message: external_exports.string().optional()
+    }).passthrough().optional(),
+    time: external_exports.object({
+      start: external_exports.number().optional(),
+      end: external_exports.number().optional(),
+      created: external_exports.number().optional(),
+      completed: external_exports.number().optional()
+    }).optional()
+  }).passthrough().optional(),
+  time: external_exports.object({
+    created: external_exports.number().optional(),
+    completed: external_exports.number().optional()
+  }).optional()
+}).passthrough();
+var MessageDataV2Schema = external_exports.object({
+  time: external_exports.object({
+    created: external_exports.number().optional(),
+    completed: external_exports.number().optional(),
+    streamed: external_exports.number().optional()
+  }).optional(),
+  agent: external_exports.string().optional(),
+  model: external_exports.object({
+    id: external_exports.string().optional(),
+    providerID: external_exports.string().optional(),
+    variant: external_exports.string().optional()
+  }).optional(),
+  content: external_exports.array(ContentItemSchema).optional(),
+  finish: external_exports.string().optional(),
+  rawFinish: external_exports.string().optional(),
+  cost: external_exports.number().optional(),
+  tokens: external_exports.object({
+    input: external_exports.number().optional(),
+    output: external_exports.number().optional(),
+    reasoning: external_exports.number().optional(),
+    cache: external_exports.object({
+      read: external_exports.number().optional(),
+      write: external_exports.number().optional()
+    }).optional()
+  }).optional()
+}).passthrough();
+function projectDisplayName(name, worktree) {
+  if (name && name.trim()) return name;
+  if (!worktree) return null;
+  const trimmed = worktree.replace(/[\\/]+$/, "");
+  if (!trimmed || trimmed === "/") return null;
+  const parts = trimmed.split(/[\\/]/);
+  return parts[parts.length - 1] || null;
+}
 function getDbPath() {
   return path.join(os3.homedir(), ".local", "share", "opencode", "opencode.db");
 }
+function detectSchema(db) {
+  try {
+    const table = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='session_v2'").get();
+    if (!table) return "v1";
+    const row = db.prepare("SELECT COUNT(*) AS c FROM session_v2").get();
+    return row.c > 0 ? "v2" : "v1";
+  } catch {
+    return "v1";
+  }
+}
 function loadSessions(dbPath = getDbPath(), sinceMessageTime) {
   const db = new DatabaseSync(dbPath);
+  try {
+    return detectSchema(db) === "v2" ? loadSessionsV2(db, sinceMessageTime) : loadSessionsV1(db, sinceMessageTime);
+  } finally {
+    db.close();
+  }
+}
+function loadSessionsV1(db, sinceMessageTime) {
   const sessions = db.prepare(`
     SELECT
       s.id, s.parent_id, s.project_id, s.title,
       s.time_created, s.time_updated, s.time_archived,
-      p.name as project_name
+      p.name as project_name, p.worktree as project_worktree
     FROM session s
     LEFT JOIN project p ON s.project_id = p.id
     ORDER BY COALESCE(NULLIF(s.time_updated, 0), s.time_created) DESC
@@ -27114,14 +27202,13 @@ function loadSessions(dbPath = getDbPath(), sinceMessageTime) {
   const interactions = loadInteractions(db, sessionIds);
   const maxTimeRow = db.prepare(`SELECT MAX(time_created) as maxTime FROM message`).get();
   const maxMessageTime = maxTimeRow?.maxTime ?? 0;
-  db.close();
   const sessionsToReturn = sinceMessageTime !== void 0 ? sessions.filter((s) => interactions.has(s.id)) : sessions;
   return {
     sessions: sessionsToReturn.map((s) => ({
       id: s.id,
       parentId: s.parent_id,
       projectId: s.project_id,
-      projectName: s.project_name,
+      projectName: projectDisplayName(s.project_name, s.project_worktree),
       title: s.title,
       timeCreated: s.time_created,
       timeUpdated: s.time_updated ?? null,
@@ -27131,6 +27218,142 @@ function loadSessions(dbPath = getDbPath(), sinceMessageTime) {
     })),
     maxMessageTime
   };
+}
+function loadSessionsV2(db, sinceMessageTime) {
+  const sessions = db.prepare(`
+    SELECT
+      s.id, s.parent_id, s.project_id, s.title,
+      s.time_created, s.time_updated, s.time_archived,
+      p.name as project_name, p.worktree as project_worktree
+    FROM session_v2 s
+    LEFT JOIN project p ON s.project_id = p.id
+    ORDER BY COALESCE(NULLIF(s.time_updated, 0), s.time_created) DESC
+  `).all();
+  let sessionIds;
+  if (sinceMessageTime !== void 0) {
+    const updatedSessionIds = db.prepare(`SELECT DISTINCT session_id FROM session_message WHERE time_updated > ?`).all(sinceMessageTime);
+    const updatedSet = new Set(updatedSessionIds.map((r) => r.session_id));
+    sessionIds = sessions.filter((s) => updatedSet.has(s.id)).map((s) => s.id);
+  } else {
+    sessionIds = sessions.map((s) => s.id);
+  }
+  const interactions = loadInteractionsV2(db, sessionIds);
+  const maxTimeRow = db.prepare(`SELECT MAX(time_updated) as maxTime FROM session_message`).get();
+  const maxMessageTime = maxTimeRow?.maxTime ?? 0;
+  const sessionsToReturn = sinceMessageTime !== void 0 ? sessions.filter((s) => interactions.has(s.id)) : sessions;
+  return {
+    sessions: sessionsToReturn.map((s) => ({
+      id: s.id,
+      parentId: s.parent_id,
+      projectId: s.project_id,
+      projectName: projectDisplayName(s.project_name, s.project_worktree),
+      title: s.title,
+      timeCreated: s.time_created,
+      timeUpdated: s.time_updated ?? null,
+      timeArchived: s.time_archived,
+      interactions: interactions.get(s.id) ?? [],
+      source: "sqlite"
+    })),
+    maxMessageTime
+  };
+}
+function loadInteractionsV2(db, sessionIds) {
+  const result = /* @__PURE__ */ new Map();
+  if (sessionIds.length === 0) return result;
+  const placeholders = sessionIds.map(() => "?").join(",");
+  const messages = db.prepare(`
+    SELECT id, session_id, data, time_created
+    FROM session_message
+    WHERE type = 'assistant' AND session_id IN (${placeholders})
+    ORDER BY time_created ASC, seq ASC
+  `).all(...sessionIds);
+  for (const msg of messages) {
+    if (!result.has(msg.session_id)) {
+      result.set(msg.session_id, []);
+    }
+    const parsed = parseMessageDataV2(msg.data, msg.id, msg.session_id, msg.time_created);
+    if (parsed) {
+      result.get(msg.session_id).push(parsed);
+    }
+  }
+  return result;
+}
+function parseContentItemV2(item) {
+  const state = item.state ?? {};
+  switch (item.type) {
+    case "text":
+      return {
+        type: "text",
+        text: item.text ?? "",
+        timeStart: item.time?.created ?? 0,
+        timeEnd: item.time?.completed ?? 0
+      };
+    case "reasoning":
+      return {
+        type: "reasoning",
+        text: item.text ?? "",
+        timeStart: item.time?.created ?? 0,
+        timeEnd: item.time?.completed ?? 0
+      };
+    case "tool": {
+      const contentOutput = (state.content ?? []).map((c) => c.text ?? "").filter((t) => t.length > 0).join("\n");
+      const output = state.error?.message ?? state.metadata?.output ?? state.output ?? contentOutput;
+      return {
+        type: "tool",
+        callId: item.id ?? "",
+        toolName: item.name ?? "unknown",
+        status: normalizeToolStatus(state.status),
+        input: state.input ?? {},
+        output,
+        title: state.title ?? null,
+        exitCode: state.metadata?.exit ?? state.metadata?.exitCode ?? null,
+        truncated: state.metadata?.truncated ?? false,
+        timeStart: item.time?.created ?? state.time?.start ?? state.time?.created ?? 0,
+        timeEnd: item.time?.completed ?? state.time?.end ?? state.time?.completed ?? 0
+      };
+    }
+    default:
+      return null;
+  }
+}
+function parseMessageDataV2(data, messageId, sessionId, timeCreated) {
+  try {
+    const parsed = MessageDataV2Schema.safeParse(JSON.parse(data));
+    if (!parsed.success) return null;
+    const json = parsed.data;
+    const tokens = json.tokens;
+    const input = tokens?.input ?? 0;
+    const output = tokens?.output ?? 0;
+    const cacheRead = tokens?.cache?.read ?? 0;
+    const cacheWrite = tokens?.cache?.write ?? 0;
+    const reasoning = tokens?.reasoning ?? 0;
+    const parts = (json.content ?? []).map((c) => parseContentItemV2(c)).filter((p) => p !== null);
+    if (input === 0 && output === 0 && cacheRead === 0 && cacheWrite === 0 && parts.length === 0) {
+      return null;
+    }
+    const created = json.time?.created ?? timeCreated;
+    const completed = json.time?.completed ?? json.time?.streamed ?? null;
+    const timeDelta = created && completed ? (completed - created) / 1e3 : null;
+    const outputRate = output > 0 && timeDelta && timeDelta > 0 ? output / timeDelta : 0;
+    return {
+      id: messageId,
+      sessionId,
+      modelId: normalizeModelName(json.model?.id ?? "unknown"),
+      providerId: json.model?.providerID ?? null,
+      role: "assistant",
+      tokens: new TokenUsage(input, output, cacheRead, cacheWrite, reasoning),
+      time: {
+        created,
+        completed
+      },
+      agent: json.agent ?? null,
+      finishReason: json.finish ?? json.rawFinish ?? null,
+      outputRate,
+      parts
+    };
+  } catch {
+    return null;
+  }
 }
 function loadInteractions(db, sessionIds) {
   const result = /* @__PURE__ */ new Map();
@@ -27285,13 +27508,17 @@ function normalizeModelName(model) {
   return model.replace(/-\d{8}$/, "").replace(/:/g, "-").toLowerCase();
 }
 function sessionExists(dbPath = getDbPath()) {
+  const db = new DatabaseSync(dbPath);
   try {
-    const db = new DatabaseSync(dbPath);
-    db.prepare("SELECT 1 FROM session LIMIT 1").get();
-    db.close();
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_v2', 'session')").all();
+    if (tables.length === 0) return false;
+    const table = tables.some((t) => t.name === "session_v2") ? "session_v2" : "session";
+    db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get();
     return true;
   } catch {
     return false;
+  } finally {
+    db.close();
   }
 }
 
@@ -27508,7 +27735,7 @@ function App2({ refreshInterval = 2e3 }) {
 }
 
 // src/cli.ts
-var pkg = true ? { version: "3.5.13", name: "opencode-top" } : devPkg();
+var pkg = true ? { version: "3.5.14", name: "opencode-top" } : devPkg();
 program.name(pkg.name).version(pkg.version).description("Monitor OpenCode AI coding sessions");
 program.command("live").description("Start live monitoring dashboard").option("-i, --interval <ms>", "Refresh interval in milliseconds", "2000").action((options) => {
   const refreshInterval = Number.parseInt(options.interval, 10);
